@@ -22,12 +22,37 @@ import Transfer from '@renderer/components/Transfer'
 import { actions, agent } from '@renderer/core/agent'
 import useOnBroadcast from '@renderer/core/useOnBroadcast'
 import lodash from 'lodash'
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { BiEdit, BiTrash } from 'react-icons/bi'
 import { v4 as uuidv4 } from 'uuid'
 import useHostsData from '../models/useHostsData'
 import useI18n from '../models/useI18n'
 import styles from './EditHostsInfo.module.scss'
+
+const insertAfterItemDeep = (
+  list: IHostsListObject[],
+  after_id: string,
+  newItem: IHostsListObject,
+): { list: IHostsListObject[]; inserted: boolean } => {
+  const idx = list.findIndex((item) => item.id === after_id)
+  if (idx >= 0) {
+    const result = [...list]
+    result.splice(idx + 1, 0, newItem)
+    return { list: result, inserted: true }
+  }
+  let inserted = false
+  const result = list.map((item) => {
+    if (!inserted && item.children?.length) {
+      const r = insertAfterItemDeep(item.children, after_id, newItem)
+      if (r.inserted) {
+        inserted = true
+        return { ...item, children: r.list }
+      }
+    }
+    return item
+  })
+  return { list: result, inserted }
+}
 
 const EditHostsInfo = () => {
   const { lang } = useI18n()
@@ -36,6 +61,7 @@ const EditHostsInfo = () => {
   const [is_show, setIsShow] = useState(false)
   const [is_add, setIsAdd] = useState(true)
   const [is_refreshing, setIsRefreshing] = useState(false)
+  const afterIdRef = useRef<string | null>(null)
 
   const onCancel = () => {
     setHosts(null)
@@ -57,7 +83,15 @@ const EditHostsInfo = () => {
         ...data,
         id: uuidv4(),
       }
-      let list: IHostsListObject[] = [...hosts_data.list, h]
+      const after_id = afterIdRef.current
+      let list: IHostsListObject[]
+      if (after_id) {
+        const result = insertAfterItemDeep(hosts_data.list, after_id, h)
+        list = result.inserted ? result.list : [...hosts_data.list, h]
+      } else {
+        list = [...hosts_data.list, h]
+      }
+      afterIdRef.current = null
       await setList(list)
       agent.broadcast(events.select_hosts, h.id, 1000)
     } else if (data && data.id) {
@@ -92,7 +126,8 @@ const EditHostsInfo = () => {
     setIsShow(true)
   })
 
-  useOnBroadcast(events.add_new, () => {
+  useOnBroadcast(events.add_new, (params?: { after_id?: string }) => {
+    afterIdRef.current = params?.after_id ?? null
     setHosts(null)
     setIsAdd(true)
     setIsShow(true)
