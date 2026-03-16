@@ -29,6 +29,29 @@ import useHostsData from '../models/useHostsData'
 import useI18n from '../models/useI18n'
 import styles from './EditHostsInfo.module.scss'
 
+const appendToFolderDeep = (
+  list: IHostsListObject[],
+  folder_id: string,
+  newItem: IHostsListObject,
+): { list: IHostsListObject[]; inserted: boolean } => {
+  let inserted = false
+  const result = list.map((item) => {
+    if (item.id === folder_id) {
+      inserted = true
+      return { ...item, children: [...(item.children || []), newItem] }
+    }
+    if (!inserted && item.children?.length) {
+      const r = appendToFolderDeep(item.children, folder_id, newItem)
+      if (r.inserted) {
+        inserted = true
+        return { ...item, children: r.list }
+      }
+    }
+    return item
+  })
+  return { list: result, inserted }
+}
+
 const insertAfterItemDeep = (
   list: IHostsListObject[],
   after_id: string,
@@ -62,6 +85,7 @@ const EditHostsInfo = () => {
   const [is_add, setIsAdd] = useState(true)
   const [is_refreshing, setIsRefreshing] = useState(false)
   const afterIdRef = useRef<string | null>(null)
+  const folderIdRef = useRef<string | null>(null)
 
   const onCancel = () => {
     setHosts(null)
@@ -84,14 +108,19 @@ const EditHostsInfo = () => {
         id: uuidv4(),
       }
       const after_id = afterIdRef.current
+      const folder_id = folderIdRef.current
       let list: IHostsListObject[]
-      if (after_id) {
+      if (folder_id) {
+        const result = appendToFolderDeep(hosts_data.list, folder_id, h)
+        list = result.inserted ? result.list : [...hosts_data.list, h]
+      } else if (after_id) {
         const result = insertAfterItemDeep(hosts_data.list, after_id, h)
         list = result.inserted ? result.list : [...hosts_data.list, h]
       } else {
         list = [...hosts_data.list, h]
       }
       afterIdRef.current = null
+      folderIdRef.current = null
       await setList(list)
       agent.broadcast(events.select_hosts, h.id, 1000)
     } else if (data && data.id) {
@@ -126,8 +155,9 @@ const EditHostsInfo = () => {
     setIsShow(true)
   })
 
-  useOnBroadcast(events.add_new, (params?: { after_id?: string }) => {
+  useOnBroadcast(events.add_new, (params?: { after_id?: string; folder_id?: string }) => {
     afterIdRef.current = params?.after_id ?? null
+    folderIdRef.current = params?.folder_id ?? null
     setHosts(null)
     setIsAdd(true)
     setIsShow(true)

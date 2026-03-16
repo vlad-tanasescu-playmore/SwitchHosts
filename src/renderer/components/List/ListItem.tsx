@@ -102,7 +102,11 @@ const ListItem = (props: Props) => {
           {
             label: lang.add_new_below,
             click() {
-              agent.broadcast(events.add_new, { after_id: data.id })
+              if (data.type === 'folder') {
+                agent.broadcast(events.add_new, { folder_id: data.id })
+              } else {
+                agent.broadcast(events.add_new, { after_id: data.id })
+              }
             },
           },
           {
