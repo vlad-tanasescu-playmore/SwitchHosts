@@ -1,5 +1,6 @@
-import { getParentOfItem } from '@common/hostsFn'
+import { flatten, getParentOfItem } from '@common/hostsFn'
 import type { IHostsListObject } from '@common/data'
+import { getHostsContent } from '@main/actions'
 
 // Gap 4: inject parent_id into a flat list using the original tree for hierarchy lookup
 export const injectParentId = (
@@ -94,6 +95,31 @@ export const computeIsStale = (
       return { ...item, is_stale }
     }
     return { ...item, is_stale: null }
+  })
+}
+
+// Gap 3: attach content to each item in a flat list (?include_content=true, flat mode)
+export const attachContent = async (
+  flat: IHostsListObject[],
+): Promise<(IHostsListObject & { content: string })[]> => {
+  return Promise.all(
+    flat.map(async (item) => {
+      const raw = await getHostsContent(item.id)
+      return { ...item, content: raw ?? '' }
+    }),
+  )
+}
+
+// Gap 7: resolve group include IDs to item objects (?resolve_groups=true)
+export const resolveGroups = (
+  flat: IHostsListObject[],
+): (IHostsListObject & { resolved_include?: IHostsListObject[] })[] => {
+  return flat.map((item) => {
+    if (item.type !== 'group' || !item.include) return item
+    const resolved_include = item.include
+      .map((incId) => flat.find((i) => i.id === incId))
+      .filter((i): i is IHostsListObject => i !== undefined)
+    return { ...item, resolved_include }
   })
 }
 

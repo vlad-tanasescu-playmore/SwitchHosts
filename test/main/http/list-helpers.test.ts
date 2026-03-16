@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { computeEffectiveOn, computeIsStale, fixIsSys, injectParentId } from '../../../src/main/http/api/listHelpers'
+import { attachContent, computeEffectiveOn, computeIsStale, fixIsSys, injectParentId, resolveGroups } from '../../../src/main/http/api/listHelpers'
 import type { IHostsListObject } from '../../../src/common/data'
+import { setHostsContent, setList } from '../../../src/main/actions'
+import { clearData } from '../../_base'
 
 describe('injectParentId', () => {
   it('sets parent_id to null for top-level items', () => {
@@ -217,5 +219,66 @@ describe('computeIsStale', () => {
     const items = [{ id: 'f', type: 'folder' as const, is_collapsed: true }]
     const result = computeIsStale(items)
     expect(result[0].is_collapsed).toBe(true)
+  })
+})
+
+describe('resolveGroups', () => {
+  it('resolves include IDs to item objects for group items', () => {
+    const flat = [
+      { id: 'g', type: 'group' as const, include: ['a', 'b'] },
+      { id: 'a', type: 'local' as const, title: 'Item A' },
+      { id: 'b', type: 'local' as const, title: 'Item B' },
+    ]
+    const result = resolveGroups(flat)
+    const group = result.find(i => i.id === 'g')!
+    expect(group.resolved_include).toHaveLength(2)
+    expect(group.resolved_include[0].id).toBe('a')
+    expect(group.resolved_include[1].id).toBe('b')
+  })
+
+  it('skips unknown IDs in include', () => {
+    const flat = [
+      { id: 'g', type: 'group' as const, include: ['a', 'missing'] },
+      { id: 'a', type: 'local' as const, title: 'Item A' },
+    ]
+    const result = resolveGroups(flat)
+    const group = result.find(i => i.id === 'g')!
+    expect(group.resolved_include).toHaveLength(1)
+    expect(group.resolved_include[0].id).toBe('a')
+  })
+
+  it('does not modify non-group items', () => {
+    const flat = [{ id: 'a', type: 'local' as const, title: 'Item A' }]
+    const result = resolveGroups(flat)
+    expect(result[0].resolved_include).toBeUndefined()
+  })
+})
+
+describe('attachContent', () => {
+  beforeEach(async () => { await clearData() })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('attaches content string to each flat item', async () => {
+    await setList([
+      { id: 'item-1', type: 'local', title: 'A' },
+      { id: 'item-2', type: 'local', title: 'B' },
+    ])
+    await setHostsContent('item-1', '10.0.0.1 a.com')
+    await setHostsContent('item-2', '10.0.0.2 b.com')
+
+    const flat = [
+      { id: 'item-1', type: 'local' as const },
+      { id: 'item-2', type: 'local' as const },
+    ]
+    const result = await attachContent(flat)
+    expect(result.find(i => i.id === 'item-1')!.content).toContain('10.0.0.1 a.com')
+    expect(result.find(i => i.id === 'item-2')!.content).toContain('10.0.0.2 b.com')
+  })
+
+  it('returns empty string for items with no saved content', async () => {
+    await setList([{ id: 'item-1', type: 'local', title: 'A' }])
+    const flat = [{ id: 'item-1', type: 'local' as const }]
+    const result = await attachContent(flat)
+    expect(result[0].content).toBe('')
   })
 })
