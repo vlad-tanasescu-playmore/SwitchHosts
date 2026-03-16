@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { computeEffectiveOn, fixIsSys, injectParentId } from '../../../src/main/http/api/listHelpers'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { computeEffectiveOn, computeIsStale, fixIsSys, injectParentId } from '../../../src/main/http/api/listHelpers'
 import type { IHostsListObject } from '../../../src/common/data'
 
 describe('injectParentId', () => {
@@ -167,5 +167,55 @@ describe('fixIsSys', () => {
     const items: IHostsListObject[] = [{ id: '0', is_sys: true }]
     const result = fixIsSys(items)
     expect(result[0].is_sys).toBe(true)
+  })
+})
+
+describe('computeIsStale', () => {
+  it('returns null for non-remote items', () => {
+    const items = [{ id: 'a', type: 'local' as const }]
+    const result = computeIsStale(items)
+    expect(result[0].is_stale).toBeNull()
+  })
+
+  it('returns null for remote item with no refresh_interval', () => {
+    const items = [{ id: 'a', type: 'remote' as const, last_refresh_ms: 1000 }]
+    const result = computeIsStale(items)
+    expect(result[0].is_stale).toBeNull()
+  })
+
+  it('returns null for remote item never refreshed (no last_refresh_ms)', () => {
+    const items = [{ id: 'a', type: 'remote' as const, refresh_interval: 60 }]
+    const result = computeIsStale(items)
+    expect(result[0].is_stale).toBeNull()
+  })
+
+  it('returns false for fresh remote item', () => {
+    const now = Date.now()
+    const items = [{
+      id: 'a',
+      type: 'remote' as const,
+      refresh_interval: 3600,
+      last_refresh_ms: now - 60_000,
+    }]
+    const result = computeIsStale(items)
+    expect(result[0].is_stale).toBe(false)
+  })
+
+  it('returns true for stale remote item', () => {
+    const now = Date.now()
+    const items = [{
+      id: 'a',
+      type: 'remote' as const,
+      refresh_interval: 60,
+      last_refresh_ms: now - 120_000,
+    }]
+    const result = computeIsStale(items)
+    expect(result[0].is_stale).toBe(true)
+  })
+
+  it('passes is_collapsed through unchanged', () => {
+    const items = [{ id: 'f', type: 'folder' as const, is_collapsed: true }]
+    const result = computeIsStale(items)
+    expect(result[0].is_collapsed).toBe(true)
   })
 })

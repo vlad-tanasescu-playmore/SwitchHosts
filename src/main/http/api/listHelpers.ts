@@ -78,6 +78,25 @@ export const computeEffectiveOn = (
   return Array.from(map.values())
 }
 
+// Gap 6: compute is_stale for remote items
+// Gap 2: is_collapsed already passes through via [key: string]: any — no transformation needed
+export const computeIsStale = (
+  items: IHostsListObject[],
+): (IHostsListObject & { is_stale: boolean | null })[] => {
+  const now = Date.now()
+  return items.map((item) => {
+    if (
+      item.type === 'remote' &&
+      typeof item.refresh_interval === 'number' &&
+      typeof item.last_refresh_ms === 'number'
+    ) {
+      const is_stale = (now - item.last_refresh_ms) > (item.refresh_interval * 1000)
+      return { ...item, is_stale }
+    }
+    return { ...item, is_stale: null }
+  })
+}
+
 // Gap 8: ensure the system item (id "0") always has is_sys: true
 export const fixIsSys = (items: IHostsListObject[]): IHostsListObject[] => {
   return items.map((item) =>
