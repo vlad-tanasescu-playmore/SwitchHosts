@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { attachContent, computeEffectiveOn, computeIsStale, fixIsSys, injectParentId, resolveGroups } from '../../../src/main/http/api/listHelpers'
+import { attachContent, buildTreeWithEnrichments, computeEffectiveOn, computeIsStale, fixIsSys, injectParentId, resolveGroups } from '../../../src/main/http/api/listHelpers'
 import type { IHostsListObject } from '../../../src/common/data'
 import { setHostsContent, setList } from '../../../src/main/actions'
 import { clearData } from '../../_base'
@@ -280,5 +280,69 @@ describe('attachContent', () => {
     const flat = [{ id: 'item-1', type: 'local' as const }]
     const result = await attachContent(flat)
     expect(result[0].content).toBe('')
+  })
+})
+
+describe('buildTreeWithEnrichments', () => {
+  beforeEach(async () => { await clearData() })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  it('returns nested structure preserving children', async () => {
+    const tree = [
+      {
+        id: 'f',
+        type: 'folder' as const,
+        on: true,
+        children: [
+          { id: 'c', type: 'local' as const, on: true },
+        ],
+      },
+    ]
+    const result = await buildTreeWithEnrichments(tree, { includeContent: false })
+    expect(result[0].children).toHaveLength(1)
+    expect(result[0].children![0].id).toBe('c')
+  })
+
+  it('injects parent_id, effective_on, is_stale on all nodes', async () => {
+    const tree = [
+      {
+        id: 'f',
+        type: 'folder' as const,
+        on: true,
+        children: [
+          { id: 'c', type: 'local' as const, on: true },
+        ],
+      },
+    ]
+    const result = await buildTreeWithEnrichments(tree, { includeContent: false })
+    const folder = result[0]
+    const child = result[0].children![0]
+    expect(folder.parent_id).toBe(null)
+    expect(child.parent_id).toBe('f')
+    expect(child.effective_on).toBe(true)
+    expect(folder.effective_on).toBe(true)
+    expect('is_stale' in child).toBe(true)
+  })
+
+  it('attaches content to nodes when includeContent is true', async () => {
+    await setList([
+      {
+        id: 'f',
+        type: 'folder',
+        on: true,
+        children: [{ id: 'c', type: 'local', on: true }],
+      },
+    ])
+    await setHostsContent('c', '1.2.3.4 test.com')
+    const tree = [
+      {
+        id: 'f',
+        type: 'folder' as const,
+        on: true,
+        children: [{ id: 'c', type: 'local' as const, on: true }],
+      },
+    ]
+    const result = await buildTreeWithEnrichments(tree, { includeContent: true })
+    expect(result[0].children![0].content).toContain('1.2.3.4 test.com')
   })
 })

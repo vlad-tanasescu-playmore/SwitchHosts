@@ -123,6 +123,42 @@ export const resolveGroups = (
   })
 }
 
+// Gap 1: build enriched tree format (?format=tree)
+// Applies all enrichments recursively: parent_id, effective_on, is_stale, is_sys, content
+// Note: flatten and getHostsContent are already imported at top of file
+export const buildTreeWithEnrichments = async (
+  tree: IHostsListObject[],
+  options: { includeContent: boolean },
+): Promise<IHostsListObject[]> => {
+  const flat = flatten(tree)
+  const withParent = injectParentId(flat, tree)
+  const withEffective = computeEffectiveOn(withParent)
+  const withStale = computeIsStale(withEffective)
+  const fixed = fixIsSys(withStale)
+
+  // Build a lookup map of enriched flat items
+  const enrichedMap = new Map(fixed.map((i) => [i.id, i]))
+
+  // Recursive function to rebuild nested tree with enrichments applied
+  const enrichNode = async (item: IHostsListObject): Promise<IHostsListObject> => {
+    const enriched = enrichedMap.get(item.id) ?? item
+    const node: IHostsListObject = { ...enriched }
+
+    if (options.includeContent) {
+      const raw = await getHostsContent(item.id)
+      node.content = raw ?? ''
+    }
+
+    if (item.children && item.children.length > 0) {
+      node.children = await Promise.all(item.children.map(enrichNode))
+    }
+
+    return node
+  }
+
+  return Promise.all(tree.map(enrichNode))
+}
+
 // Gap 8: ensure the system item (id "0") always has is_sys: true
 export const fixIsSys = (items: IHostsListObject[]): IHostsListObject[] => {
   return items.map((item) =>
