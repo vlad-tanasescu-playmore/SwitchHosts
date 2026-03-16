@@ -100,6 +100,12 @@ const ListItem = (props: Props) => {
             },
           },
           {
+            label: lang.add_new_below,
+            click() {
+              agent.broadcast(events.add_new, { after_id: data.id })
+            },
+          },
+          {
             label: lang.refresh,
             async click() {
               ref_toast_refresh.current = `${Date.now()}`
