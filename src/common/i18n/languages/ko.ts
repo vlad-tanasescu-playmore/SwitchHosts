@@ -41,6 +41,7 @@ export default {
   delete: '삭제',
   download: '다운로드',
   edit: '수정',
+  add_new_below: 'Add new below',
   export: '내보내기',
   export_done: '내보내기가 완료되었습니다.',
   fail: '실패!',

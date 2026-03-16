@@ -43,6 +43,7 @@ const lang: LanguageDict = {
   delete: 'Supprimer',
   download: 'Télécharger',
   edit: 'Éditer',
+  add_new_below: 'Add new below',
   export: 'Exporter',
   export_done: "L'export est terminé.",
   fail: 'Échec !',

@@ -42,6 +42,7 @@ const lang: LanguageDict = {
   delete: '删除',
   download: '下载',
   edit: '编辑',
+  add_new_below: '在下方新建',
   export: '导出',
   export_done: '导出已完成。',
   fail: '操作失败！',

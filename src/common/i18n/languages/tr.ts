@@ -40,6 +40,7 @@ export default {
   delete: 'Sil',
   download: 'İndir',
   edit: 'Düzenle',
+  add_new_below: 'Add new below',
   export: 'Dışa Aktar',
   export_done: 'Dışa aktarma tamamlandı.',
   fail: 'Başarısız!',

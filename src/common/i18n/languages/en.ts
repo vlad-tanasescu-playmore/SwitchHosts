@@ -42,6 +42,7 @@ export default {
   delete: 'Delete',
   download: 'Download',
   edit: 'Edit',
+  add_new_below: 'Add new below',
   export: 'Export',
   export_done: 'The export is complete.',
   fail: 'Fail!',
