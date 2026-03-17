@@ -4,7 +4,7 @@
 
 **Goal:** Rename all SwitchHosts items to a consistent `[person] [server]` naming convention, delete empty items, fix folder names, and reorganize two standalone items into a folder.
 
-**Architecture:** All changes go through the SwitchHosts HTTP API (port 50761). Each operation is a simple curl call: `PUT /api/items/:id` to rename, `DELETE /api/items/:id` to delete, `POST /api/items` to create, `PUT /api/content/:id` to set content. No code changes needed — this is pure data reorganization.
+**Architecture:** All changes go through the SwitchHosts HTTP API (port 50761). Each operation is a curl call: `PUT /api/items/:id` to rename/move, `DELETE /api/items/:id` to delete, `POST /api/items` to create (supports `parent_id` to insert directly into a folder), `PUT /api/content/:id` to set content. No UI interaction needed. No code changes needed — this is pure data reorganization.
 
 **Tech Stack:** SwitchHosts HTTP API (localhost:50761), curl, bash
 
@@ -605,93 +605,117 @@ curl -s -X PUT http://127.0.0.1:50761/api/items/81323d52-0000-0000-0000-00000000
 
 ### Task 23: Replace sensotv.ro/toate diverse with 4 children
 
-The `sensotv.ro` folder has one child `toate diverse` (ON) with all server variants mixed as commented-out lines. We replace it with 4 clean children. All 4 children must be created **inside the `sensotv.ro` folder using the SwitchHosts UI** — the HTTP API `POST /api/items` only creates root-level items and cannot target a folder. After creating them via UI, we set their content via API, then delete the original `toate diverse`.
+The `sensotv.ro` folder (id: `30db0749-...`) has one child `toate diverse` (ON, id: `3fe59712-5ead-4633-8a8d-ca4d18c134cb`) with all server variants mixed as commented-out lines. We create 4 clean children directly inside the folder via `POST /api/items` with `parent_id`, set their content, then delete the original.
 
-**Full content strings** (extracted from current `toate diverse`):
+**Content for each new child:**
 
-| New title | IP | Content |
+| New title | on | Content |
 |-----------|-----|---------|
-| `vlad box2` | 10.0.52.232 | `10.0.52.232\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro` |
-| `alex box2` | 10.0.52.233 | `10.0.52.233\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro` |
-| `vps2` | 89.46.103.27 | `89.46.103.27\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n89.46.103.27\tstaging.sensotv.ro staging.sensosanatate.ro staging.sensolifestyle.ro staging.sensoarte.ro staging.sensoarta.ro` |
-| `94.130.169.181` | 94.130.169.181 | `94.130.169.181\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro` |
+| `vlad box2` | true | `10.0.52.232\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n` |
+| `alex box2` | false | `10.0.52.233\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n` |
+| `vps2` | false | `89.46.103.27\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n89.46.103.27\tstaging.sensotv.ro staging.sensosanatate.ro staging.sensolifestyle.ro staging.sensoarte.ro staging.sensoarta.ro\n` |
+| `94.130.169.181` | false | `94.130.169.181\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n` |
 
-- [ ] **Step 1: In SwitchHosts UI, create 4 new local items inside the `sensotv.ro` folder**
-
-Right-click on `sensotv.ro` folder → New item (repeat 4 times):
-- `vlad box2` — enabled (ON)
-- `alex box2` — disabled
-- `vps2` — disabled
-- `94.130.169.181` — disabled
-
-Do not set content yet — we'll do that via API.
-
-- [ ] **Step 2: Get the IDs of the newly created children**
+- [ ] **Step 1: Get the full ID of the `sensotv.ro` folder**
 
 ```bash
-curl -s "http://127.0.0.1:50761/api/list" | node -e "
+curl -s "http://127.0.0.1:50761/api/list" > "$USERPROFILE/AppData/Local/Temp/swh_pre23.json"
+node -e "
 const fs=require('fs');
-let d='';process.stdin.on('data',c=>d+=c);
-process.stdin.on('end',()=>{
-  const items=JSON.parse(d).data;
-  const sensotv=items.find(i=>i.title==='sensotv.ro');
-  const children=items.filter(i=>i.parent_id===sensotv.id);
-  children.forEach(c=>console.log(c.id, c.title, 'on='+c.on));
-})
+const items=JSON.parse(fs.readFileSync('C:/Users/vlad.tanasescu/AppData/Local/Temp/swh_pre23.json','utf8')).data;
+const f=items.find(i=>i.title==='sensotv.ro'&&i.type==='folder');
+console.log('sensotv folder id:', f.id);
 "
-# Note the IDs — you'll use them in the next steps
+# Note: SENSOTV_ID
+```
+
+- [ ] **Step 2: Create `vlad box2` (ON) inside the folder**
+
+```bash
+# Replace SENSOTV_ID with the id from Step 1
+curl -s -X POST http://127.0.0.1:50761/api/items \
+  -H "Content-Type: application/json" \
+  -d '{"title":"vlad box2","type":"local","on":true,"parent_id":"SENSOTV_ID"}'
+# Note the returned id — VLAD_ID
 ```
 
 - [ ] **Step 3: Set content for `vlad box2`**
 
 ```bash
-# Replace VLAD_ID with the id from Step 2
 curl -s -X PUT "http://127.0.0.1:50761/api/content/VLAD_ID" \
   -H "Content-Type: application/json" \
-  -d '{"content": "10.0.52.232\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n"}'
+  -d '{"content":"10.0.52.232\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n"}'
 ```
 
-- [ ] **Step 4: Set content for `alex box2`**
+- [ ] **Step 4: Create `alex box2` (off) inside the folder**
+
+```bash
+curl -s -X POST http://127.0.0.1:50761/api/items \
+  -H "Content-Type: application/json" \
+  -d '{"title":"alex box2","type":"local","on":false,"parent_id":"SENSOTV_ID"}'
+# Note ALEX_ID
+```
+
+- [ ] **Step 5: Set content for `alex box2`**
 
 ```bash
 curl -s -X PUT "http://127.0.0.1:50761/api/content/ALEX_ID" \
   -H "Content-Type: application/json" \
-  -d '{"content": "10.0.52.233\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n"}'
+  -d '{"content":"10.0.52.233\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n"}'
 ```
 
-- [ ] **Step 5: Set content for `vps2`**
+- [ ] **Step 6: Create `vps2` (off) inside the folder**
+
+```bash
+curl -s -X POST http://127.0.0.1:50761/api/items \
+  -H "Content-Type: application/json" \
+  -d '{"title":"vps2","type":"local","on":false,"parent_id":"SENSOTV_ID"}'
+# Note VPS2_ID
+```
+
+- [ ] **Step 7: Set content for `vps2`**
 
 ```bash
 curl -s -X PUT "http://127.0.0.1:50761/api/content/VPS2_ID" \
   -H "Content-Type: application/json" \
-  -d '{"content": "89.46.103.27\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n89.46.103.27\tstaging.sensotv.ro staging.sensosanatate.ro staging.sensolifestyle.ro staging.sensoarte.ro staging.sensoarta.ro\n"}'
+  -d '{"content":"89.46.103.27\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n89.46.103.27\tstaging.sensotv.ro staging.sensosanatate.ro staging.sensolifestyle.ro staging.sensoarte.ro staging.sensoarta.ro\n"}'
 ```
 
-- [ ] **Step 6: Set content for `94.130.169.181`**
+- [ ] **Step 8: Create `94.130.169.181` (off) inside the folder**
+
+```bash
+curl -s -X POST http://127.0.0.1:50761/api/items \
+  -H "Content-Type: application/json" \
+  -d '{"title":"94.130.169.181","type":"local","on":false,"parent_id":"SENSOTV_ID"}'
+# Note IP_ID
+```
+
+- [ ] **Step 9: Set content for `94.130.169.181`**
 
 ```bash
 curl -s -X PUT "http://127.0.0.1:50761/api/content/IP_ID" \
   -H "Content-Type: application/json" \
-  -d '{"content": "94.130.169.181\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n"}'
+  -d '{"content":"94.130.169.181\tsensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro\n"}'
 ```
 
-- [ ] **Step 7: Verify all 4 children are inside `sensotv.ro` folder (not at root)**
+- [ ] **Step 10: Verify all 4 children are inside the folder**
 
 ```bash
 curl -s "http://127.0.0.1:50761/api/list" | node -e "
 const fs=require('fs');let d='';process.stdin.on('data',c=>d+=c);
 process.stdin.on('end',()=>{
   const items=JSON.parse(d).data;
-  const sensotv=items.find(i=>i.title==='sensotv.ro');
+  const sensotv=items.find(i=>i.title==='sensotv.ro'&&i.type==='folder');
   const children=items.filter(i=>i.parent_id===sensotv.id);
-  console.log('sensotv children:', children.map(c=>c.title+' on='+c.on).join(', '));
-  const expected=['vlad box2','alex box2','vps2','94.130.169.181'];
-  expected.forEach(t=>{ if(!children.find(c=>c.title===t)) console.log('MISSING:', t); });
+  const expected=['vlad box2','alex box2','vps2','94.130.169.181','toate diverse'];
+  children.forEach(c=>console.log(c.title,'on='+c.on,'inFolder=true'));
+  ['vlad box2','alex box2','vps2','94.130.169.181'].forEach(t=>{
+    if(!children.find(c=>c.title===t)) console.log('MISSING:', t);
+  });
 })"
-# Expected: all 4 new children listed, none is missing
 ```
 
-- [ ] **Step 8: Delete `toate diverse`**
+- [ ] **Step 11: Delete `toate diverse`**
 
 ```bash
 curl -s -X DELETE http://127.0.0.1:50761/api/items/3fe59712-5ead-4633-8a8d-ca4d18c134cb
@@ -810,57 +834,55 @@ curl -s -X PUT http://127.0.0.1:50761/api/items/88e121c9-0000-0000-0000-00000000
 
 ### Task 29: Create elearning.catena.ro folder and populate it
 
-The two existing standalone items (`elearning.catena.ro` off, `dev.elearning.catena.ro` ON) need to move into a new folder. The HTTP API doesn't support creating items inside a folder — **use the SwitchHosts UI for folder/item creation**, then set content via API.
+The two existing standalone items (`elearning.catena.ro` off, `dev.elearning.catena.ro` ON) need to move into a new folder. All done via the HTTP API using `POST /api/items` with `parent_id`.
 
-- [ ] **Step 1: In SwitchHosts UI, create a new folder at top level**
-
-Right-click on the root list → New folder → title: `elearning.catena.ro`
-
-- [ ] **Step 2: In SwitchHosts UI, create child `vlad box2` inside the new folder**
-
-Right-click on `elearning.catena.ro` folder → New item → title: `vlad box2` (leave disabled)
-
-- [ ] **Step 3: In SwitchHosts UI, create child `dev vlad box2` inside the folder (enabled)**
-
-Right-click on `elearning.catena.ro` folder → New item → title: `dev vlad box2`, toggle it ON
-
-- [ ] **Step 4: Get IDs of the two new children**
+- [ ] **Step 1: Create the `elearning.catena.ro` folder at root level**
 
 ```bash
-curl -s "http://127.0.0.1:50761/api/list" | node -e "
-const fs=require('fs');let d='';process.stdin.on('data',c=>d+=c);
-process.stdin.on('end',()=>{
-  const items=JSON.parse(d).data;
-  const folder=items.find(i=>i.title==='elearning.catena.ro'&&i.type==='folder');
-  if(!folder){console.log('ERROR: folder not found');return;}
-  console.log('Folder id:', folder.id);
-  const children=items.filter(i=>i.parent_id===folder.id);
-  children.forEach(c=>console.log('Child:', c.id, c.title, 'on='+c.on));
-})"
-# Note the IDs for vlad box2 and dev vlad box2 children
+curl -s -X POST http://127.0.0.1:50761/api/items \
+  -H "Content-Type: application/json" \
+  -d '{"title":"elearning.catena.ro","type":"folder"}'
+# Note the returned id — FOLDER_ID
 ```
 
-- [ ] **Step 5: Set content for `vlad box2`**
+- [ ] **Step 2: Create `vlad box2` (off) inside the folder**
 
 ```bash
-# Replace VLAD_ID with the child id from Step 4
+# Replace FOLDER_ID with the id from Step 1
+curl -s -X POST http://127.0.0.1:50761/api/items \
+  -H "Content-Type: application/json" \
+  -d '{"title":"vlad box2","type":"local","on":false,"parent_id":"FOLDER_ID"}'
+# Note the returned id — VLAD_ID
+```
+
+- [ ] **Step 3: Set content for `vlad box2`**
+
+```bash
 curl -s -X PUT "http://127.0.0.1:50761/api/content/VLAD_ID" \
   -H "Content-Type: application/json" \
-  -d '{"content": "10.0.52.232\telearning.catena.ro\n"}'
+  -d '{"content":"10.0.52.232\telearning.catena.ro\n"}'
 # Expected: {"success":true}
 ```
 
-- [ ] **Step 6: Set content for `dev vlad box2`**
+- [ ] **Step 4: Create `dev vlad box2` (ON) inside the folder**
 
 ```bash
-# Replace DEV_VLAD_ID with the child id from Step 4
+curl -s -X POST http://127.0.0.1:50761/api/items \
+  -H "Content-Type: application/json" \
+  -d '{"title":"dev vlad box2","type":"local","on":true,"parent_id":"FOLDER_ID"}'
+# Note the returned id — DEV_VLAD_ID
+```
+
+- [ ] **Step 5: Set content for `dev vlad box2`**
+
+```bash
 curl -s -X PUT "http://127.0.0.1:50761/api/content/DEV_VLAD_ID" \
   -H "Content-Type: application/json" \
-  -d '{"content": "10.0.52.232\tdev.elearning.catena.ro\n"}'
+  -d '{"content":"10.0.52.232\tdev.elearning.catena.ro\n"}'
 # Expected: {"success":true}
 ```
 
-- [ ] **Step 7: Verify the new folder and its children look correct**
+- [ ] **Step 6: Verify the new folder and its children look correct**
 
 ```bash
 curl -s "http://127.0.0.1:50761/api/list?include_content=true" | node -e "
@@ -878,9 +900,7 @@ process.stdin.on('end',()=>{
 # - dev vlad box2 on=true content="10.0.52.232\tdev.elearning.catena.ro\n"
 ```
 
-- [ ] **Step 8: Delete the two old standalones**
-
-First confirm their IDs are still the same (they haven't changed):
+- [ ] **Step 7: Find and delete the two old standalones**
 
 ```bash
 curl -s "http://127.0.0.1:50761/api/list" | node -e "
@@ -888,17 +908,13 @@ const fs=require('fs');let d='';process.stdin.on('data',c=>d+=c);
 process.stdin.on('end',()=>{
   const items=JSON.parse(d).data;
   ['elearning.catena.ro','dev.elearning.catena.ro'].forEach(t=>{
-    const i=items.find(x=>x.title===t&&x.parent_id===null&&x.type!=='folder');
-    if(i) console.log('Standalone found:', i.id, i.title);
+    const i=items.find(x=>x.title===t&&!x.parent_id&&x.type!=='folder');
+    if(i) console.log('DELETE this standalone:', i.id, i.title);
     else console.log('Already gone or not standalone:', t);
   });
 })"
-```
-
-```bash
-# Delete the standalones (not the new folder)
-curl -s -X DELETE http://127.0.0.1:50761/api/items/114549c8-0000-0000-0000-000000000000
-curl -s -X DELETE http://127.0.0.1:50761/api/items/4e16207e-0000-0000-0000-000000000000
+# Run the DELETE commands for each id printed above:
+# curl -s -X DELETE http://127.0.0.1:50761/api/items/<id>
 # Both Expected: {"success":true}
 ```
 
@@ -1034,4 +1050,4 @@ process.stdin.on('end',()=>JSON.parse(d).data.forEach(i=>console.log(i.id, i.tit
 - **Content is preserved** — renaming an item never touches its hosts content
 - **ON/OFF state is preserved** — renames do not toggle items
 - **Deleted items go to trashcan** — recoverable from SwitchHosts UI if a mistake is made
-- **sensotv and elearning require UI** — the HTTP API cannot place new items inside a specific folder; use the SwitchHosts UI for those two tasks
+- **No UI needed** — `POST /api/items` supports `parent_id` to create items directly inside a folder; all operations are API-only
