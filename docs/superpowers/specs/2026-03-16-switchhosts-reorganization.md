@@ -35,14 +35,21 @@ Format: `[person] [server]` for production, `staging [person] [server]` for stag
 | What | Title |
 |------|-------|
 | Vlad on box2 (10.0.52.232) | `vlad box2` |
+| Vlad2 on box2 (10.0.52.242) | `vlad2 box2` |
+| Alex on box2 (10.0.52.233) | `alex box2` |
+| Denisa on box2 (10.0.52.234) | `denisa box2` |
 | Marina on box2 (10.0.52.235) | `marina box2` |
+| Marina2 on box2 (10.0.52.245) | `marina2 box2` |
+| Silviu on box2 (10.0.52.236) | `silviu box2` |
+| Silviu2 on box2 (10.0.52.246) | `silviu2 box2` |
 | Nicu on box2 (10.0.52.237) | `nicu box2` |
+| Catalin on box2 (10.0.52.238) | `catalin box2` |
+| QA on box2 (10.0.52.240) | `qa box2` |
 | VPS principal (178.162.221.169) | `vps` |
 | VPS2 (89.46.103.27) | `vps2` |
 | Staging on box2 (Vlad) | `staging vlad box2` |
 | Staging on vps2 | `staging vps2` |
 | Dev subdomain on box2 (Vlad) | `dev vlad box2` |
-| Unknown IP (not in mapping) | IP address as-is, e.g. `10.0.52.233` |
 | Other unique external IP | IP address as-is, e.g. `146.70.110.66` |
 
 ### Folder items
@@ -136,7 +143,7 @@ Format: `[person] [server]` for production, `staging [person] [server]` for stag
 | Current child | Action | New title |
 |--------------|--------|-----------|
 | `10.0.52.232` | Rename | `vlad box2` |
-| `10.0.52.233` | Rename (unknown IP — see Unknown IPs section) | `10.0.52.233` |
+| `10.0.52.233` | Rename | `alex box2` |
 
 #### consenttonica.catena.ro
 | Current child | Action | New title |
@@ -211,7 +218,7 @@ Format: `[person] [server]` for production, `staging [person] [server]` for stag
 | Current child | Action | New title |
 |--------------|--------|-----------|
 | `10.0.52.232` | Rename | `vlad box2` |
-| `10.0.52.234` | Rename | `10.0.52.234` *(unknown person — confirm)* |
+| `10.0.52.234` | Rename | `denisa box2` |
 | `178.162.221.169` | Rename | `vps` |
 
 #### sensotv.ro
@@ -222,7 +229,7 @@ Split into individual children, keeping only the active (uncommented) line enabl
 |--------------|--------|-----------|---------|
 | `toate diverse` (ON) | Replace with 4 separate children | — | — |
 | *(new)* | Create (ON — inherits current active state) | `vlad box2` | `10.0.52.232 sensotv.ro www.sensotv.ro www.sensosanatate.ro www.sensolifestyle.ro www.sensoarte.ro www.sensoarta.ro sensosanatate.ro sensolifestyle.ro sensoarte.ro sensoarta.ro` |
-| *(new)* | Create (off) | `10.0.52.233` | `10.0.52.233 sensotv.ro ...` (same domains) |
+| *(new)* | Create (off) | `alex box2` | `10.0.52.233 sensotv.ro ...` (same domains) |
 | *(new)* | Create (off) | `vps2` | `89.46.103.27 sensotv.ro ...` (same domains + staging subdomains) |
 | *(new)* | Create (off) | `94.130.169.181` | `94.130.169.181 sensotv.ro ...` (same domains) |
 
@@ -250,7 +257,7 @@ Note: The commented `cdn.sensotv.ro` and `vps.sensotv.ro` lines are historical n
 | `10.0.52.232` | Rename | `vlad box2` |
 | `10.0.52.232 staging` | Rename | `staging vlad box2` |
 | `10.0.52.235` | Rename | `marina box2` |
-| `10.0.52.233` | Rename (unknown IP — see Unknown IPs section) | `10.0.52.233` |
+| `10.0.52.233` | Rename | `alex box2` |
 | `altele` | Rename (content = vps) | `vps` |
 
 #### vladalexandru.ro
@@ -266,15 +273,22 @@ Note: The commented `cdn.sensotv.ro` and `vps.sensotv.ro` lines are historical n
 
 ---
 
-## Unknown IPs — Confirm Before Rename
+## IP → Person Mapping (box2)
 
-These IPs appear in the current config but don't match the known mapping. Confirm before renaming:
-
-| IP | Appears in | Guess |
-|----|-----------|-------|
-| `10.0.52.233` | `tonica.ro`, `cariere.fildascatena.ro` | Unknown box2 colleague |
-| `10.0.52.234` | `safeforyou.ro` | Unknown box2 colleague |
-| `46.165.219.167` | `passwords.tonicagroup.ro` | External VPS (Passbolt) |
+| IP | Person | Title prefix |
+|----|--------|-------------|
+| 10.0.52.232 | vlad | `vlad box2` |
+| 10.0.52.233 | alex | `alex box2` |
+| 10.0.52.234 | denisa | `denisa box2` |
+| 10.0.52.235 | marina | `marina box2` |
+| 10.0.52.236 | silviu | `silviu box2` |
+| 10.0.52.237 | nicu | `nicu box2` |
+| 10.0.52.238 | catalin | `catalin box2` |
+| 10.0.52.240 | qa | `qa box2` |
+| 10.0.52.242 | vlad2 | `vlad2 box2` |
+| 10.0.52.245 | marina2 | `marina2 box2` |
+| 10.0.52.246 | silviu2 | `silviu2 box2` |
+| 46.165.219.167 | — | External VPS (Passbolt) — keep as IP |
 
 ---
 
