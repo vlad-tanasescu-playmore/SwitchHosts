@@ -1,6 +1,6 @@
 ---
 name: build-and-test
-description: Use when building, testing, or launching SwitchHosts locally — covers dev mode, production build, Windows workarounds, installer packaging, and test execution
+description: Use when building, testing, or launching SwitchHosts locally — covers dev mode, production build, installer packaging, and test execution
 ---
 
 # SwitchHosts — Build & Test Reference
@@ -17,20 +17,8 @@ Pornește main process + renderer cu hot reload. Modificările în `src/renderer
 
 ## Production Build
 
-### Problemă Windows cu rimraf pe drive A:\
-
-`npm run build` și `npm run build:release` **eșuează** cu:
-```
-Error: Illegal characters in path — A:\xampp\htdocs\switchhosts\build\*
-```
-
-**Soluție — curăță manual, apoi build direct:**
-
 ```bash
-rm -rf ./build/*
-npx concurrently --kill-others-on-fail --names main,renderer \
-  "npm run build:main" \
-  "npm run build:renderer"
+npm run build:release
 ```
 
 Output așteptat:
@@ -54,8 +42,6 @@ npx electron .
 ---
 
 ## Installer Windows (NSIS)
-
-Funcționează fără workaround (nu folosește rimraf cu glob):
 
 ```bash
 npm run make:win
@@ -105,9 +91,7 @@ npm run typecheck
 npm run test
 
 # 3. Build
-rm -rf ./build/*
-npx concurrently --kill-others-on-fail --names main,renderer \
-  "npm run build:main" "npm run build:renderer"
+npm run build:release
 
 # 4. Test manual
 npx electron build/main.js
