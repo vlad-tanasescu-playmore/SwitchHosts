@@ -238,11 +238,15 @@ const List = (props: Props) => {
           </div>
         }
         nodeAttr={(item) => {
+          // Disable drag/drop entirely while filtering — the visible tree is
+          // a partial view of hosts_data.list, so any rearrangement would be
+          // computed against the filtered subset and lost on filter clear.
+          const filtering = !!(filter_query ?? '').trim()
           return {
-            can_drag: !item.is_sys && !is_tray,
-            can_drop_before: !item.is_sys,
-            can_drop_in: item.type === 'folder',
-            can_drop_after: !item.is_sys,
+            can_drag: !item.is_sys && !is_tray && !filtering,
+            can_drop_before: !item.is_sys && !filtering,
+            can_drop_in: item.type === 'folder' && !filtering,
+            can_drop_after: !item.is_sys && !filtering,
           }
         }}
         draggingNodeRender={(data) => {

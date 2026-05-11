@@ -75,7 +75,7 @@ const Index = (_props: Props) => {
       </div>
       <div className={styles.tree_wrap}>
         <List filter_query={filter_query} />
-        {hosts_data.trashcan.length > 0 ? <Trashcan /> : null}
+        {!filter_query.trim() && hosts_data.trashcan.length > 0 ? <Trashcan /> : null}
       </div>
     </div>
   )
