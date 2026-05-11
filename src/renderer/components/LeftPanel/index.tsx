@@ -9,6 +9,7 @@ import Trashcan from '@renderer/components/LeftPanel/Trashcan'
 import List from '@renderer/components/List'
 import { agent } from '@renderer/core/agent'
 import { PopupMenu } from '@renderer/core/PopupMenu'
+import useOnBroadcast from '@renderer/core/useOnBroadcast'
 import useHostsData from '@renderer/models/useHostsData'
 import useI18n from '@renderer/models/useI18n'
 import { useEffect, useRef, useState } from 'react'
@@ -25,10 +26,16 @@ const Index = (_props: Props) => {
   const [filter_query, setFilterQuery] = useState('')
   const input_ref = useRef<HTMLInputElement>(null)
 
-  // Auto-focus on mount.
+  // Auto-focus on initial mount.
   useEffect(() => {
     input_ref.current?.focus()
   }, [])
+
+  // Refocus whenever the main window becomes visible (re-shown from tray, etc.).
+  // Main process broadcasts this event from `win.on('show')`.
+  useOnBroadcast(events.open_quick_open, () => {
+    input_ref.current?.focus()
+  })
 
   const menu = new PopupMenu([
     {

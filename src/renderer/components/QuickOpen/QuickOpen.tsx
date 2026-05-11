@@ -103,10 +103,17 @@ export default function QuickOpen() {
   })
 
   // Subsequent window shows: the main process broadcasts on `win.on('show')`.
-  useOnBroadcast(events.open_quick_open, () => {
-    if (configs?.quick_open_on_window_show === false) return
-    spotlight.open()
-  })
+  // `configs` must be in deps so toggling the pref in Preferences takes effect
+  // immediately — otherwise the captured value is stale and the palette keeps
+  // opening even after the user disables it.
+  useOnBroadcast(
+    events.open_quick_open,
+    () => {
+      if (configs?.quick_open_on_window_show === false) return
+      spotlight.open()
+    },
+    [configs],
+  )
 
   // Cold-start auto-open: the very first `win.on('show')` broadcast lands
   // before the React tree mounts the listener above, so it's dropped. Compensate
