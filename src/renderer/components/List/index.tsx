@@ -23,10 +23,27 @@ import ListItem from './ListItem'
 
 interface Props {
   is_tray?: boolean
+  filter_query?: string
+}
+
+function filterTree(items: IHostsListObject[], q: string): IHostsListObject[] {
+  if (!q) return items
+  const ql = q.toLowerCase()
+  const out: IHostsListObject[] = []
+  for (const item of items) {
+    const title_match = (item.title ?? '').toLowerCase().includes(ql)
+    const filtered_children = item.children
+      ? filterTree(item.children, q)
+      : undefined
+    if (title_match || (filtered_children && filtered_children.length > 0)) {
+      out.push({ ...item, children: filtered_children })
+    }
+  }
+  return out
 }
 
 const List = (props: Props) => {
-  const { is_tray } = props
+  const { is_tray, filter_query } = props
   const { hosts_data, loadHostsData, setList, current_hosts, setCurrentHosts } = useHostsData()
   const { configs } = useConfigs()
   const { lang } = useI18n()
@@ -34,19 +51,16 @@ const List = (props: Props) => {
   const [show_list, setShowList] = useState<IHostsListObject[]>([])
 
   useEffect(() => {
+    const q = (filter_query ?? '').trim()
+    const filtered = q ? filterTree(hosts_data.list, q) : hosts_data.list
     if (!is_tray) {
-      setShowList([
-        {
-          id: '0',
-          title: lang.system_hosts,
-          is_sys: true,
-        },
-        ...hosts_data.list,
-      ])
+      // System hosts hidden while filtering — it has no real title to match.
+      const sys: IHostsListObject = { id: '0', title: lang.system_hosts, is_sys: true }
+      setShowList(q ? filtered : [sys, ...filtered])
     } else {
-      setShowList([...hosts_data.list])
+      setShowList([...filtered])
     }
-  }, [hosts_data])
+  }, [hosts_data, filter_query, lang])
 
   useEffect(() => {
     if (is_tray || !current_hosts) return

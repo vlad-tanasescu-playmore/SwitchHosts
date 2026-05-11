@@ -3,12 +3,25 @@
 .list {
   position: relative;
   height: calc(100vh - var(--swh-top-bar-height));
-  overflow: auto;
   padding: 5px 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.search_wrap {
+  flex-shrink: 0;
+  margin-bottom: 6px;
+}
+
+.tree_wrap {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
 }
 
 :global(.platform-win32) {
-  .list {
+  .tree_wrap {
     @include common.swh-scroll-y();
   }
 }
