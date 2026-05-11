@@ -28,10 +28,14 @@ export const computeEffectiveOn = (
   }
 
   // Pass 1: compute effective_on for local/remote items (depend only on ancestors)
+  // Folders are passive containers — they don't block children. Only non-folder
+  // ancestors with on=false block propagation.
   const getAncestorEffective = (parentId: string | null): boolean => {
     if (parentId === null) return true
     const parent = map.get(parentId)
     if (!parent) return true
+    // Folders don't have on/off state — skip them in the chain
+    if (parent.type === 'folder') return getAncestorEffective(parent.parent_id)
     return (parent.on ?? false) && getAncestorEffective(parent.parent_id)
   }
 
@@ -164,4 +168,125 @@ export const fixIsSys = (items: IHostsListObject[]): IHostsListObject[] => {
   return items.map((item) =>
     item.id === '0' ? { ...item, is_sys: true } : item,
   )
+}
+
+export interface ListFilterParams {
+  on?: boolean          // filter by on field (true = enabled, false = disabled)
+  types?: string[]      // filter by type (e.g. ['local', 'remote'])
+  ids?: string[]        // filter to specific item IDs
+  q?: string            // case-insensitive title search
+}
+
+// Returns true if the item itself matches the filter criteria
+const itemMatchesFilter = (item: IHostsListObject, filter: ListFilterParams): boolean => {
+  if (filter.on !== undefined && item.on !== filter.on) return false
+  if (filter.types && filter.types.length > 0 && !filter.types.includes(item.type ?? '')) return false
+  if (filter.ids && filter.ids.length > 0 && !filter.ids.includes(item.id)) return false
+  if (filter.q) {
+    const title = (item.title ?? '').toLowerCase()
+    if (!title.includes(filter.q.toLowerCase())) return false
+  }
+  return true
+}
+
+// Filter flat list: items matching the filter get _matched: true.
+// Ancestors of matched items are also included with _matched: false (for hierarchy context).
+export const filterFlatItems = (
+  flat: IHostsListObject[],
+  filter: ListFilterParams,
+): (IHostsListObject & { _matched: boolean })[] => {
+  // Build parent lookup: id → parent_id
+  const parentOf = new Map<string, string | null>()
+  for (const item of flat) {
+    const pid = (item as IHostsListObject & { parent_id?: string | null }).parent_id
+    parentOf.set(item.id, pid ?? null)
+  }
+
+  const matchedIds = new Set<string>()
+  for (const item of flat) {
+    if (itemMatchesFilter(item, filter)) {
+      matchedIds.add(item.id)
+    }
+  }
+
+  // Collect all ancestor IDs of matched items
+  const ancestorIds = new Set<string>()
+  for (const id of matchedIds) {
+    let current: string | null | undefined = parentOf.get(id)
+    while (current) {
+      ancestorIds.add(current)
+      current = parentOf.get(current)
+    }
+  }
+
+  const result: (IHostsListObject & { _matched: boolean })[] = []
+  for (const item of flat) {
+    if (matchedIds.has(item.id)) {
+      result.push({ ...item, _matched: true })
+    } else if (ancestorIds.has(item.id)) {
+      result.push({ ...item, _matched: false })
+    }
+  }
+  return result
+}
+
+// Filter tree: prune branches where no node (self or descendant) matches.
+// Returns tree nodes with _matched flag; ancestor nodes of matches are included with _matched: false.
+export const filterTree = (
+  tree: IHostsListObject[],
+  filter: ListFilterParams,
+): (IHostsListObject & { _matched: boolean })[] => {
+  const filterNode = (
+    item: IHostsListObject,
+  ): (IHostsListObject & { _matched: boolean }) | null => {
+    const selfMatches = itemMatchesFilter(item, filter)
+
+    if (item.children && item.children.length > 0) {
+      const filteredChildren = item.children
+        .map(filterNode)
+        .filter((c): c is IHostsListObject & { _matched: boolean } => c !== null)
+
+      if (filteredChildren.length > 0 || selfMatches) {
+        return { ...item, _matched: selfMatches, children: filteredChildren }
+      }
+      return null
+    }
+
+    return selfMatches ? { ...item, _matched: true } : null
+  }
+
+  return tree
+    .map(filterNode)
+    .filter((n): n is IHostsListObject & { _matched: boolean } => n !== null)
+}
+
+// Parse filter query params from Hono request query strings
+export const parseFilterParams = (query: {
+  on?: string
+  type?: string
+  ids?: string
+  q?: string
+}): ListFilterParams | null => {
+  const filter: ListFilterParams = {}
+  let hasFilter = false
+
+  if (query.on === 'true') { filter.on = true; hasFilter = true }
+  else if (query.on === 'false') { filter.on = false; hasFilter = true }
+
+  if (query.type) {
+    filter.types = query.type.split(',').map((t) => t.trim()).filter(Boolean)
+    if (filter.types.length > 0) hasFilter = true
+  }
+
+  if (query.ids) {
+    filter.ids = query.ids.split(',').map((id) => id.trim()).filter(Boolean)
+    if (filter.ids.length > 0) hasFilter = true
+  }
+
+  if (query.q && query.q.trim()) {
+    filter.q = query.q.trim()
+    hasFilter = true
+  }
+
+  return hasFilter ? filter : null
 }

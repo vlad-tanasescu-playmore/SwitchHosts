@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { attachContent, buildTreeWithEnrichments, computeEffectiveOn, computeIsStale, fixIsSys, injectParentId, resolveGroups } from '../../../src/main/http/api/listHelpers'
+import { attachContent, buildTreeWithEnrichments, computeEffectiveOn, computeIsStale, filterFlatItems, filterTree, fixIsSys, injectParentId, parseFilterParams, resolveGroups } from '../../../src/main/http/api/listHelpers'
 import type { IHostsListObject } from '../../../src/common/data'
 import { setHostsContent, setList } from '../../../src/main/actions'
 import { clearData } from '../../_base'
@@ -85,13 +85,14 @@ describe('computeEffectiveOn', () => {
     expect(result.find(i => i.id === 'd')!.effective_on).toBe(false)
   })
 
-  it('child inside inactive folder: effective_on = false even if child.on = true', () => {
+  it('child inside inactive folder: effective_on = true because folders are passive containers', () => {
     const flat = [
       { id: 'f', type: 'folder' as const, on: false, parent_id: null },
       { id: 'c', type: 'local' as const, on: true, parent_id: 'f' },
     ]
     const result = computeEffectiveOn(flat)
-    expect(result.find(i => i.id === 'c')!.effective_on).toBe(false)
+    // Folders don't block children — getContentOfList ignores folder.on
+    expect(result.find(i => i.id === 'c')!.effective_on).toBe(true)
   })
 
   it('folder effective_on = true if any child has effective_on = true', () => {
@@ -143,14 +144,15 @@ describe('computeEffectiveOn', () => {
     expect(result.find(i => i.id === 'g')!.effective_on).toBe(false)
   })
 
-  it('nested folder: child in inactive parent folder is not effective even with grandparent on', () => {
+  it('nested folder: child in inactive parent folder is still effective (folders are passive)', () => {
     const flat = [
       { id: 'gf', type: 'folder' as const, on: true, parent_id: null },
       { id: 'f', type: 'folder' as const, on: false, parent_id: 'gf' },
       { id: 'c', type: 'local' as const, on: true, parent_id: 'f' },
     ]
     const result = computeEffectiveOn(flat)
-    expect(result.find(i => i.id === 'c')!.effective_on).toBe(false)
+    // Folders don't block children — only the child's own on state matters
+    expect(result.find(i => i.id === 'c')!.effective_on).toBe(true)
   })
 })
 
@@ -344,5 +346,135 @@ describe('buildTreeWithEnrichments', () => {
     ]
     const result = await buildTreeWithEnrichments(tree, { includeContent: true })
     expect(result[0].children![0].content).toContain('1.2.3.4 test.com')
+  })
+})
+
+describe('parseFilterParams', () => {
+  it('returns null when no relevant params are given', () => {
+    expect(parseFilterParams({})).toBeNull()
+    expect(parseFilterParams({ on: undefined })).toBeNull()
+  })
+
+  it('parses on=true', () => {
+    const f = parseFilterParams({ on: 'true' })!
+    expect(f.on).toBe(true)
+  })
+
+  it('parses on=false', () => {
+    const f = parseFilterParams({ on: 'false' })!
+    expect(f.on).toBe(false)
+  })
+
+  it('parses type as comma-separated array', () => {
+    const f = parseFilterParams({ type: 'local,remote' })!
+    expect(f.types).toEqual(['local', 'remote'])
+  })
+
+  it('parses ids as comma-separated array', () => {
+    const f = parseFilterParams({ ids: 'abc,def' })!
+    expect(f.ids).toEqual(['abc', 'def'])
+  })
+
+  it('parses q', () => {
+    const f = parseFilterParams({ q: 'catena' })!
+    expect(f.q).toBe('catena')
+  })
+
+  it('returns null for blank q', () => {
+    expect(parseFilterParams({ q: '  ' })).toBeNull()
+  })
+})
+
+describe('filterFlatItems', () => {
+  const flat = [
+    { id: 'f', type: 'folder' as const, on: true, parent_id: null, title: 'Folder' },
+    { id: 'a', type: 'local' as const, on: true, parent_id: 'f', title: 'catena.ro' },
+    { id: 'b', type: 'local' as const, on: false, parent_id: 'f', title: 'tonica.ro' },
+    { id: 'c', type: 'remote' as const, on: true, parent_id: null, title: 'remote item' },
+  ]
+
+  it('returns all matched items with _matched: true', () => {
+    const result = filterFlatItems(flat, { on: true })
+    const matched = result.filter((i) => i._matched)
+    expect(matched.map((i) => i.id).sort()).toEqual(['a', 'c', 'f'].sort())
+  })
+
+  it('includes ancestors with _matched: false when child matches', () => {
+    const result = filterFlatItems(flat, { ids: ['a'] })
+    const folderEntry = result.find((i) => i.id === 'f')
+    expect(folderEntry).toBeDefined()
+    expect(folderEntry!._matched).toBe(false)
+    expect(result.find((i) => i.id === 'a')!._matched).toBe(true)
+  })
+
+  it('excludes items that do not match and have no matching descendants', () => {
+    const result = filterFlatItems(flat, { ids: ['c'] })
+    expect(result.find((i) => i.id === 'f')).toBeUndefined()
+    expect(result.find((i) => i.id === 'a')).toBeUndefined()
+    expect(result.find((i) => i.id === 'b')).toBeUndefined()
+  })
+
+  it('filters by type', () => {
+    const result = filterFlatItems(flat, { types: ['remote'] })
+    expect(result.find((i) => i.id === 'c')!._matched).toBe(true)
+    expect(result.find((i) => i.id === 'a')).toBeUndefined()
+  })
+
+  it('filters by q (case-insensitive title search)', () => {
+    const result = filterFlatItems(flat, { q: 'CATENA' })
+    const ids = result.map((i) => i.id)
+    expect(ids).toContain('a')
+    expect(ids).toContain('f') // ancestor
+    expect(ids).not.toContain('c')
+  })
+
+  it('returns empty array when nothing matches', () => {
+    const result = filterFlatItems(flat, { q: 'nonexistent' })
+    expect(result).toHaveLength(0)
+  })
+})
+
+describe('filterTree', () => {
+  const tree = [
+    {
+      id: 'f',
+      type: 'folder' as const,
+      on: true,
+      title: 'Folder',
+      children: [
+        { id: 'a', type: 'local' as const, on: true, title: 'catena.ro' },
+        { id: 'b', type: 'local' as const, on: false, title: 'tonica.ro' },
+      ],
+    },
+    { id: 'c', type: 'remote' as const, on: true, title: 'remote' },
+  ]
+
+  it('keeps root items that match', () => {
+    const result = filterTree(tree, { types: ['remote'] })
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('c')
+    expect(result[0]._matched).toBe(true)
+  })
+
+  it('keeps parent when child matches, parent _matched = false', () => {
+    const result = filterTree(tree, { ids: ['a'] })
+    expect(result).toHaveLength(1)
+    expect(result[0].id).toBe('f')
+    expect(result[0]._matched).toBe(false)
+    expect(result[0].children).toHaveLength(1)
+    expect(result[0].children![0].id).toBe('a')
+    expect((result[0].children![0] as { _matched: boolean })._matched).toBe(true)
+  })
+
+  it('prunes branches with no match', () => {
+    const result = filterTree(tree, { on: false })
+    expect(result).toHaveLength(1) // folder is kept (has matching child b)
+    expect(result[0].children).toHaveLength(1)
+    expect(result[0].children![0].id).toBe('b')
+  })
+
+  it('returns empty array when nothing matches', () => {
+    const result = filterTree(tree, { q: 'nonexistent' })
+    expect(result).toHaveLength(0)
   })
 })

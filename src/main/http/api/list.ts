@@ -7,8 +7,11 @@ import {
   buildTreeWithEnrichments,
   computeEffectiveOn,
   computeIsStale,
+  filterFlatItems,
+  filterTree,
   fixIsSys,
   injectParentId,
+  parseFilterParams,
   resolveGroups,
 } from './listHelpers'
 
@@ -24,11 +27,18 @@ const list = async (c: Context) => {
   const format = c.req.query('format')
   const includeContent = c.req.query('include_content') === 'true'
   const resolveGroupsParam = c.req.query('resolve_groups') === 'true'
+  const filter = parseFilterParams({
+    on: c.req.query('on'),
+    type: c.req.query('type'),
+    ids: c.req.query('ids'),
+    q: c.req.query('q'),
+  })
 
   let data: IHostsListObject[]
 
   if (format === 'tree') {
-    data = await buildTreeWithEnrichments(tree, { includeContent })
+    const enriched = await buildTreeWithEnrichments(tree, { includeContent })
+    data = filter ? filterTree(enriched, filter) : enriched
   } else {
     // Flat mode pipeline — each step widens the type; cast to IHostsListObject[] at end
     // IHostsListObject has [key: string]: any so all extra fields are compatible
@@ -38,9 +48,12 @@ const list = async (c: Context) => {
     const step4 = computeIsStale(step3)
     const step5 = fixIsSys(step4)
     const step6 = resolveGroupsParam ? resolveGroups(step5) : step5
+    const step7 = filter
+      ? filterFlatItems(step6 as IHostsListObject[], filter)
+      : step6
     data = includeContent
-      ? await attachContent(step6 as IHostsListObject[])
-      : (step6 as IHostsListObject[])
+      ? await attachContent(step7 as IHostsListObject[])
+      : (step7 as IHostsListObject[])
   }
 
   return c.json({ success: true, data })
