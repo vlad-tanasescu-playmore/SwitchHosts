@@ -246,8 +246,12 @@ npm run make:win     # Package for Windows (NSIS installer + portable)
 npm run make:linux   # Package for Linux
 npm run make:dev     # Dev build (no notarization)
 
+npm run release:local # End-to-end: build + make:win + auto-install x64 + relaunch (~4 min)
+
 npm run version:up   # Bump patch version in src/version.json
 ```
+
+⚠️ **Gotcha `ELECTRON_RUN_AS_NODE`** when launching Electron from this shell (Claude Code sets it): app crashes silently at startup with `Cannot read properties of undefined (reading 'getPath')`. Either `unset ELECTRON_RUN_AS_NODE` before launching, or use PowerShell `Start-Process` for a clean env. See `.claude/skills/build-and-test/SKILL.md` for full workarounds. `scripts/install-local.mjs` already strips it from the child env.
 
 ---
 
