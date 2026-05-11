@@ -36,9 +36,11 @@ const createWindow = async () => {
     defaultHeight: 480,
   })
 
-  let linux_icon = {}
-  if (process.platform === 'linux') {
-    linux_icon = {
+  // Windows shows the Electron default icon in the taskbar during dev (no exe to inherit from);
+  // Linux AppImage needs an explicit icon to render in the dock.
+  let window_icon = {}
+  if (process.platform === 'linux' || process.platform === 'win32') {
+    window_icon = {
       icon: path.join(__dirname, '/assets/icon.png'),
     }
   }
@@ -59,7 +61,7 @@ const createWindow = async () => {
       preload: path.join(__dirname, 'preload.js'),
       spellcheck: true,
     },
-    ...linux_icon,
+    ...window_icon,
   })
 
   main_window_state.manage(win)
