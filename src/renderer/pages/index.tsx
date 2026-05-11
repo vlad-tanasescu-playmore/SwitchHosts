@@ -6,6 +6,7 @@ import LeftPanel from '@renderer/components/LeftPanel'
 import Loading from '@renderer/components/Loading'
 import MainPanel from '@renderer/components/MainPanel'
 import PreferencePanel from '@renderer/components/Pref'
+import QuickOpen from '@renderer/components/QuickOpen/QuickOpen'
 import SetWriteMode from '@renderer/components/SetWriteMode'
 import SudoPasswordInput from '@renderer/components/SudoPasswordInput'
 import UpdateDialog from '@renderer/components/UpdateDialog'
@@ -114,6 +115,7 @@ export default () => {
       <History />
       <UpdateDialog />
       <About />
+      <QuickOpen />
     </div>
   )
 }

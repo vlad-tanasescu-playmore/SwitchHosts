@@ -64,6 +64,10 @@ const createWindow = async () => {
 
   main_window_state.manage(win)
 
+  win.on('show', () => {
+    win?.webContents.send('y_broadcast', 'open_quick_open')
+  })
+
   const ses = win.webContents.session
   // console.log(ses.getUserAgent())
   global.ua = ses.getUserAgent()
