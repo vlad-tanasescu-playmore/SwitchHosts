@@ -8,22 +8,68 @@ import useOnBroadcast from '@renderer/core/useOnBroadcast'
 import useConfigs from '@renderer/models/useConfigs'
 import useHostsData from '@renderer/models/useHostsData'
 import useI18n from '@renderer/models/useI18n'
-import Fuse from 'fuse.js'
-import React, { useEffect, useMemo, useState } from 'react'
+import Fuse, { FuseResultMatch } from 'fuse.js'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { IoSearch } from 'react-icons/io5'
 import { buildIndex, SearchEntry } from './buildIndex'
 import styles from './QuickOpen.module.scss'
 
+type LineEntry = Extract<SearchEntry, { kind: 'line' }>
+type ItemEntry = Extract<SearchEntry, { kind: 'item' }>
+
+interface LineHit {
+  entry: LineEntry
+  raw_indices: ReadonlyArray<readonly [number, number]>
+}
+
 interface Group {
   item_id: string
-  header: Extract<SearchEntry, { kind: 'item' }> | null
+  header: ItemEntry | null
   header_matched: boolean
-  lines: Extract<SearchEntry, { kind: 'line' }>[]
+  lines: LineHit[]
   best_score: number
 }
 
 const MAX_RESULTS = 50
 const MAX_LINES_PER_ITEM_DEFAULT = 5
+
+function rawIndicesFromMatches(
+  matches: readonly FuseResultMatch[] | undefined,
+): ReadonlyArray<readonly [number, number]> {
+  if (!matches) return []
+  for (const m of matches) {
+    if (m.key === 'raw') return m.indices
+  }
+  return []
+}
+
+function HighlightedText({
+  text,
+  indices,
+}: {
+  text: string
+  indices: ReadonlyArray<readonly [number, number]>
+}) {
+  if (indices.length === 0) return <>{text}</>
+  // Merge overlapping/adjacent indices and emit spans.
+  const sorted = [...indices].sort((a, b) => a[0] - b[0])
+  const parts: React.ReactNode[] = []
+  let pos = 0
+  let i = 0
+  for (const [start, end] of sorted) {
+    if (end < pos) continue
+    const real_start = Math.max(start, pos)
+    if (real_start > pos) parts.push(text.slice(pos, real_start))
+    parts.push(
+      <span key={i++} className={styles.highlight}>
+        {text.slice(real_start, end + 1)}
+      </span>,
+    )
+    pos = end + 1
+  }
+  if (pos < text.length) parts.push(text.slice(pos))
+  return <>{parts}</>
+}
 
 export default function QuickOpen() {
   const { lang } = useI18n()
@@ -32,6 +78,7 @@ export default function QuickOpen() {
   const [contents, setContents] = useState<Record<string, string>>({})
   const [query, setQuery] = useState('')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const cold_start_opened_ref = useRef(false)
 
   const reload = async () => {
     try {
@@ -41,18 +88,36 @@ export default function QuickOpen() {
       console.error('QuickOpen: getAllContents failed', e)
     }
   }
-  useEffect(() => {
-    reload()
-  }, [])
-  useOnBroadcast(events.hosts_refreshed, reload)
-  useOnBroadcast(events.hosts_refreshed_by_id, reload)
-  useOnBroadcast(events.reload_list, reload)
 
+  useEffect(() => {
+    reload().catch((e) => console.error(e))
+  }, [])
+
+  // Dropped duplicate subscription on `hosts_refreshed`; the single-item event
+  // covers user-driven changes and `reload_list` covers tree reloads.
+  useOnBroadcast(events.hosts_refreshed_by_id, () => {
+    reload().catch((e) => console.error(e))
+  })
+  useOnBroadcast(events.reload_list, () => {
+    reload().catch((e) => console.error(e))
+  })
+
+  // Subsequent window shows: the main process broadcasts on `win.on('show')`.
   useOnBroadcast(events.open_quick_open, () => {
-    if (!configs) return
-    if (configs.quick_open_on_window_show === false) return
+    if (configs?.quick_open_on_window_show === false) return
     spotlight.open()
   })
+
+  // Cold-start auto-open: the very first `win.on('show')` broadcast lands
+  // before the React tree mounts the listener above, so it's dropped. Compensate
+  // by opening once when `configs` and `hosts_data` are both first ready.
+  useEffect(() => {
+    if (cold_start_opened_ref.current) return
+    if (!configs || !hosts_data) return
+    cold_start_opened_ref.current = true
+    if (configs.quick_open_on_window_show === false) return
+    spotlight.open()
+  }, [configs, hosts_data])
 
   const list: IHostsListObject[] = hosts_data?.list ?? []
   const search_in_content = configs?.quick_open_search_in_content !== false
@@ -82,16 +147,26 @@ export default function QuickOpen() {
     [entries],
   )
 
+  // Reset per-group expansion when the query changes — stale expansions
+  // bleed across unrelated result sets otherwise.
+  useEffect(() => {
+    setExpanded({})
+  }, [query])
+
   const grouped: Group[] = useMemo(() => {
     const q = query.trim()
-    let hits: { item: SearchEntry; score: number }[]
+    type Hit = {
+      item: SearchEntry
+      score: number
+      matches: readonly FuseResultMatch[] | undefined
+    }
+    let hits: Hit[]
     if (!q) {
       hits = entries
         .filter((e) => e.kind === 'item')
         .slice(0, MAX_RESULTS)
-        .map((item) => ({ item, score: 0 }))
+        .map((item) => ({ item, score: 0, matches: undefined }))
     } else {
-      // Strip Fuse extended-search operators; treat user spaces as AND tokens.
       const safe = q.replace(/[|!^=$']/g, ' ').trim()
       const expr = safe
         .split(/\s+/)
@@ -99,11 +174,11 @@ export default function QuickOpen() {
         .map((t) => `'${t}`)
         .join(' ')
       const raw = fuse.search(expr, { limit: 500 })
-      hits = raw.map((r) => ({ item: r.item, score: r.score ?? 1 }))
+      hits = raw.map((r) => ({ item: r.item, score: r.score ?? 1, matches: r.matches }))
     }
 
     const by_item = new Map<string, Group>()
-    for (const { item, score } of hits) {
+    for (const { item, score, matches } of hits) {
       const id = item.item_id
       let g = by_item.get(id)
       if (!g) {
@@ -114,14 +189,14 @@ export default function QuickOpen() {
         g.header = item
         g.header_matched = true
       } else {
-        g.lines.push(item)
+        g.lines.push({ entry: item, raw_indices: rawIndicesFromMatches(matches) })
       }
       g.best_score = Math.min(g.best_score, score)
     }
 
     for (const g of by_item.values()) {
       if (!g.header) {
-        const any_line = g.lines[0]
+        const any_line = g.lines[0]?.entry
         if (any_line) {
           g.header = {
             kind: 'item',
@@ -129,7 +204,7 @@ export default function QuickOpen() {
             title: any_line.item_title,
             type: any_line.item_type,
             on: any_line.item_on,
-            line_count: 0,
+            line_count: g.lines.length,
           }
         }
       }
@@ -145,22 +220,22 @@ export default function QuickOpen() {
     spotlight.close()
     agent.broadcast(events.select_hosts, entry.item_id)
     if (entry.kind === 'line') {
-      // Small delay so the editor mounts the new content before we ask it to scroll.
-      setTimeout(() => {
-        const param: IFindShowSourceParam = {
-          item_id: entry.item_id,
-          start: 0,
-          end: entry.raw.length,
-          line: entry.line_no,
-          line_pos: 0,
-          end_line: entry.line_no,
-          end_line_pos: entry.raw.length,
-          before: '',
-          match: entry.raw,
-          after: '',
-        }
-        agent.broadcast(events.show_source, param)
-      }, 80)
+      // The editor (`HostsEditor.tsx`) stashes incoming show_source params
+      // in a pending-find ref with a 3s window and applies them after the
+      // new item's content loads — no client-side delay needed.
+      const param: IFindShowSourceParam = {
+        item_id: entry.item_id,
+        start: 0,
+        end: entry.raw.length,
+        line: entry.line_no,
+        line_pos: 0,
+        end_line: entry.line_no,
+        end_line_pos: entry.raw.length,
+        before: '',
+        match: entry.raw,
+        after: '',
+      }
+      agent.broadcast(events.show_source, param)
     }
   }
 
@@ -200,14 +275,16 @@ export default function QuickOpen() {
                   </span>
                 </div>
               </Spotlight.Action>
-              {visible.map((line) => (
+              {visible.map((hit) => (
                 <Spotlight.Action
-                  key={`${line.item_id}:${line.line_no}`}
-                  onClick={() => activate(line)}
+                  key={`${hit.entry.item_id}:${hit.entry.line_no}`}
+                  onClick={() => activate(hit.entry)}
                 >
                   <div className={styles.line_row}>
-                    <span className={styles.line_no}>line {line.line_no}</span>
-                    <span className={styles.line_text}>{line.raw}</span>
+                    <span className={styles.line_no}>line {hit.entry.line_no}</span>
+                    <span className={styles.line_text}>
+                      <HighlightedText text={hit.entry.raw} indices={hit.raw_indices} />
+                    </span>
                   </div>
                 </Spotlight.Action>
               ))}
