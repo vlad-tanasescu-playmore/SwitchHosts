@@ -6,6 +6,7 @@ export type SearchEntry =
       kind: 'item'
       item_id: string
       title: string
+      parent_titles: string[]
       type: HostsType
       on: boolean
       line_count: number
@@ -14,6 +15,7 @@ export type SearchEntry =
       kind: 'line'
       item_id: string
       item_title: string
+      parent_titles: string[]
       item_type: HostsType
       item_on: boolean
       line_no: number
@@ -24,13 +26,20 @@ export type SearchEntry =
 
 function walkTree(
   list: IHostsListObject[],
-  visit: (node: IHostsListObject) => void,
+  parents: string[],
+  visit: (node: IHostsListObject, parent_titles: string[]) => void,
 ): void {
   for (const node of list) {
-    visit(node)
-    if (node.children?.length) {
-      walkTree(node.children, visit)
+    const type: HostsType = node.type ?? 'local'
+    if (type === 'folder') {
+      const next_parents = node.title ? [...parents, node.title] : parents
+      if (node.children?.length) {
+        walkTree(node.children, next_parents, visit)
+      }
+      // Folder itself is not emitted — only its leaf descendants.
+      continue
     }
+    visit(node, parents)
   }
 }
 
@@ -40,7 +49,7 @@ export function buildIndex(
 ): SearchEntry[] {
   const out: SearchEntry[] = []
 
-  walkTree(list, (node) => {
+  walkTree(list, [], (node, parent_titles) => {
     const type: HostsType = node.type ?? 'local'
     const on = node.on ?? false
     const title = node.title ?? ''
@@ -51,6 +60,7 @@ export function buildIndex(
       kind: 'item',
       item_id: node.id,
       title,
+      parent_titles,
       type,
       on,
       line_count: parsed.length,
@@ -61,6 +71,7 @@ export function buildIndex(
         kind: 'line',
         item_id: node.id,
         item_title: title,
+        parent_titles,
         item_type: type,
         item_on: on,
         line_no: p.line_no,

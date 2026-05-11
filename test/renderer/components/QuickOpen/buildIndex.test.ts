@@ -3,7 +3,7 @@ import { buildIndex, SearchEntry } from '../../../../src/renderer/components/Qui
 import { IHostsListObject } from '../../../../src/common/data'
 
 describe('buildIndex', () => {
-  it('emits one item entry per node (incl. folders/groups)', () => {
+  it('emits item entries for leaves only (skips folders, includes groups)', () => {
     const list: IHostsListObject[] = [
       { id: 'a', title: 'A', type: 'local', on: true },
       { id: 'f', title: 'F', type: 'folder', on: false, children: [
@@ -13,7 +13,22 @@ describe('buildIndex', () => {
     ]
     const out = buildIndex(list, {})
     const items = out.filter((e): e is Extract<SearchEntry, { kind: 'item' }> => e.kind === 'item')
-    expect(items.map((i) => i.item_id).sort()).toEqual(['a', 'b', 'f', 'g'])
+    expect(items.map((i) => i.item_id).sort()).toEqual(['a', 'b', 'g'])
+  })
+
+  it('attaches parent_titles breadcrumb to nested leaves', () => {
+    const list: IHostsListObject[] = [
+      { id: 'root', title: 'Root', type: 'folder', children: [
+        { id: 'sub', title: 'Sub', type: 'folder', children: [
+          { id: 'leaf', title: 'leaf-host', type: 'local', on: true },
+        ] },
+      ] },
+    ]
+    const out = buildIndex(list, { leaf: '10.0.0.1 host\n' })
+    const item = out.find((e) => e.kind === 'item' && e.item_id === 'leaf')!
+    expect(item.kind === 'item' && item.parent_titles).toEqual(['Root', 'Sub'])
+    const line = out.find((e) => e.kind === 'line')!
+    expect(line.kind === 'line' && line.parent_titles).toEqual(['Root', 'Sub'])
   })
 
   it('emits no line entries when contents map is empty', () => {

@@ -3,17 +3,28 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+}
+
+.group_header_title {
+  color: inherit;
 }
 
 .group_header_title_dim {
-  color: var(--swh-font-color-weak);
+  color: var(--mantine-color-dimmed);
   font-weight: 500;
 }
 
 .group_header_meta {
   margin-left: auto;
   font-size: 11px;
-  color: var(--swh-font-color-weak);
+  color: var(--mantine-color-dimmed);
+}
+
+.breadcrumb {
+  color: var(--mantine-color-dimmed);
+  font-weight: 400;
+  font-size: 12px;
 }
 
 .line_row {
@@ -23,10 +34,11 @@
   display: flex;
   gap: 12px;
   align-items: center;
+  width: 100%;
 }
 
 .line_no {
-  color: var(--swh-font-color-weak);
+  color: var(--mantine-color-dimmed);
   min-width: 48px;
 }
 
@@ -37,19 +49,49 @@
   text-overflow: ellipsis;
 }
 
+.highlight {
+  background-color: rgba(255, 220, 0, 0.45);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 .badge_on,
 .badge_off {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 8px;
+  font-weight: 600;
 }
 
 .badge_on {
-  background-color: var(--swh-primary-color);
+  background-color: var(--mantine-color-blue-6);
   color: white;
 }
 
 .badge_off {
-  background-color: var(--swh-border-color-0);
-  color: var(--swh-font-color-weak);
+  background-color: var(--mantine-color-gray-6);
+  color: white;
+}
+
+// Visual separator between groups (skip on the first group).
+.group_separated {
+  border-top: 1px solid var(--mantine-color-default-border);
+  margin-top: 4px;
+  padding-top: 6px;
+}
+
+.group_first {
+  // No top border on the very first header.
+}
+
+// When this action row is the focused/selected one in Spotlight,
+// Mantine sets data-selected="true". Ensure dimmed children stay readable.
+:global([data-selected='true']) {
+  .group_header_meta,
+  .line_no,
+  .group_header_title_dim,
+  .breadcrumb {
+    color: rgba(255, 255, 255, 0.85);
+  }
 }

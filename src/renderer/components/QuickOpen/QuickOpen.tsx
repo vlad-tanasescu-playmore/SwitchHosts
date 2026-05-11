@@ -202,6 +202,7 @@ export default function QuickOpen() {
             kind: 'item',
             item_id: any_line.item_id,
             title: any_line.item_title,
+            parent_titles: any_line.parent_titles,
             type: any_line.item_type,
             on: any_line.item_on,
             line_count: g.lines.length,
@@ -255,16 +256,25 @@ export default function QuickOpen() {
         {grouped.length === 0 && (
           <Spotlight.Empty>{lang?.quick_open_empty ?? 'No matches'}</Spotlight.Empty>
         )}
-        {grouped.map((g) => {
+        {grouped.map((g, group_idx) => {
           const max_lines = expanded[g.item_id] ? g.lines.length : MAX_LINES_PER_ITEM_DEFAULT
           const visible = g.lines.slice(0, max_lines)
           const overflow = g.lines.length - visible.length
           const header = g.header!
+          const is_first = group_idx === 0
           return (
-            <Spotlight.ActionsGroup key={g.item_id}>
-              <Spotlight.Action onClick={() => activate(header)}>
+            <React.Fragment key={g.item_id}>
+              <Spotlight.Action
+                onClick={() => activate(header)}
+                className={is_first ? styles.group_first : styles.group_separated}
+              >
                 <div className={styles.group_header}>
-                  <span className={g.header_matched ? '' : styles.group_header_title_dim}>
+                  {header.parent_titles.length > 0 && (
+                    <span className={styles.breadcrumb}>
+                      {header.parent_titles.join(' / ')} /
+                    </span>
+                  )}
+                  <span className={g.header_matched ? styles.group_header_title : styles.group_header_title_dim}>
                     {header.title || '(untitled)'}
                   </span>
                   <span className={header.on ? styles.badge_on : styles.badge_off}>
@@ -299,7 +309,7 @@ export default function QuickOpen() {
                   </div>
                 </Spotlight.Action>
               )}
-            </Spotlight.ActionsGroup>
+            </React.Fragment>
           )
         })}
       </Spotlight.ActionsList>
