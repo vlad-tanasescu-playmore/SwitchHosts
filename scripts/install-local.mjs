@@ -64,10 +64,18 @@ if (!existsSync(installedExe)) {
 }
 
 log(`launching ${installedExe}...`)
+// ELECTRON_RUN_AS_NODE=1 (often set by Claude Code, some shells, or CI agents)
+// forces Electron to run as plain Node — crashes the app at startup with
+// "Cannot read properties of undefined (reading 'getPath')". Strip it from
+// the child env so the relaunch behaves like a normal user-initiated start.
+const childEnv = { ...process.env }
+delete childEnv.ELECTRON_RUN_AS_NODE
+
 const child = spawn(installedExe, [], {
   detached: true,
   stdio: 'ignore',
   windowsHide: false,
+  env: childEnv,
 })
 child.unref()
 
