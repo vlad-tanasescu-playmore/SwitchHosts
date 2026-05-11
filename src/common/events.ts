@@ -16,6 +16,7 @@ export default {
   hosts_refreshed_by_id: 'hosts_refreshed_by_id',
   move_to_trashcan: 'move_to_trashcan',
   new_version: 'new_version',
+  open_quick_open: 'open_quick_open',
   reload_list: 'reload_list',
   select_hosts: 'select_hosts',
   set_hosts_on_status: 'set_hosts_on_status',

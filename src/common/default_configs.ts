@@ -32,6 +32,8 @@ const configs = {
   http_api_only_local: true,
   tray_mini_window: true,
   multi_chose_folder_switch_all: false,
+  quick_open_on_window_show: true,
+  quick_open_search_in_content: true,
 
   // Legacy key: it now controls background update checks, while the actual
   // download remains a manual action in the UI.
