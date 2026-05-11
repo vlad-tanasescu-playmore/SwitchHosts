@@ -21,6 +21,7 @@
     "make:dev": "cross-env SKIP_NOTARIZATION=1 cross-env MAKE_FOR=dev npm run make",
     "make:linux": "cross-env SKIP_NOTARIZATION=1 cross-env MAKE_FOR=linux npm run make",
     "make:win": "cross-env SKIP_NOTARIZATION=1 cross-env MAKE_FOR=win npm run make",
+    "release:local": "npm run _build && npm run make:win && node ./scripts/install-local.mjs",
     "release:upload": "node ./scripts/upload-release.mjs",
     "release:upload:dry-run": "cross-env DRY_RUN=1 node ./scripts/upload-release.mjs",
     "publish": "npm run release:upload"
