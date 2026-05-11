@@ -5,6 +5,7 @@
  */
 
 import * as os from 'os'
+import { normalizeLineEndings } from './newlines'
 
 const default_options = {
   remove_duplicate_records: false,
@@ -41,7 +42,7 @@ export const formatLine = (o: Partial<IHostsLineObj>): string => {
 
 const removeDuplicateRecords = (content: string): string => {
   let domain_ip_map: IDomainsIPMap = {}
-  let lines = content.split('\n')
+  let lines = normalizeLineEndings(content).split('\n')
   let new_lines: string[] = []
 
   lines.map((line) => {
