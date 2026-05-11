@@ -277,7 +277,18 @@ export default function QuickOpen() {
                   <span className={g.header_matched ? styles.group_header_title : styles.group_header_title_dim}>
                     {header.title || '(untitled)'}
                   </span>
-                  <span className={header.on ? styles.badge_on : styles.badge_off}>
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    title={header.on ? 'Click to disable' : 'Click to enable'}
+                    className={header.on ? styles.badge_on : styles.badge_off}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      agent.broadcast(events.toggle_item, header.item_id, !header.on)
+                    }}
+                  >
                     {header.on ? 'on' : 'off'}
                   </span>
                   <span className={styles.group_header_meta}>

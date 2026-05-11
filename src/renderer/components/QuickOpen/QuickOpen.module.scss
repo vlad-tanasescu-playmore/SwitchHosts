@@ -59,9 +59,16 @@
 .badge_on,
 .badge_off {
   font-size: 10px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 8px;
   font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: filter 0.1s;
+
+  &:hover {
+    filter: brightness(1.15);
+  }
 }
 
 .badge_on {
