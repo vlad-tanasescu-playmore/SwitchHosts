@@ -36,24 +36,17 @@ if (!existsSync(installerPath)) {
 }
 log(`found installer: ${installerName}`)
 
-log('killing running SwitchHosts processes (if any)...')
+log(`running installer — closing app + UAC prompt now, install ~30s...`)
+// Kill running instance IMMEDIATELY before invoking installer to minimize
+// downtime. /F = forced kill, releases file locks instantly on Windows.
 const killResult = spawnSync('taskkill', ['/F', '/IM', 'SwitchHosts.exe'], {
   stdio: 'pipe',
   encoding: 'utf8',
 })
-if (killResult.status === 0) {
-  log('processes terminated')
-} else if (killResult.stderr?.includes('not found') || killResult.stderr?.includes('nu a fost')) {
-  log('no running processes found (already stopped)')
-} else {
+if (killResult.status !== 0 && !/not found|nu a fost/i.test(killResult.stderr || '')) {
   log(`taskkill exited with code ${killResult.status}; continuing anyway`)
-  if (killResult.stderr) console.error(killResult.stderr.trim())
 }
 
-// Brief wait to let file locks release before installer overwrites files.
-await new Promise((r) => setTimeout(r, 1500))
-
-log(`running installer silently — UAC prompt will appear once...`)
 // NSIS flags: /S = silent, /D=<dir> = install directory (no quotes, must be last)
 const installArgs = ['/S', `/D=${installDir}`]
 const installResult = spawnSync(installerPath, installArgs, {
