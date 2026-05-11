@@ -17,6 +17,7 @@ export { default as configUpdate } from './config/update'
 
 export { default as getPathOfSystemHosts } from './hosts/getPathOfSystemHostsPath'
 export { default as getHostsContent } from './hosts/getContent'
+export { default as getAllContents } from './hosts/getAllContents'
 export { default as setHostsContent } from './hosts/setContent'
 export { default as refreshHosts } from './hosts/refresh'
 export { default as getSystemHosts } from './hosts/getSystemHosts'
