@@ -201,4 +201,8 @@ export default {
   zoom: 'Zoom',
   zoom_in: 'Zoom in',
   zoom_out: 'Zoom out',
+  pref_quick_open_on_window_show: 'Open Quick Open palette automatically when the window appears',
+  pref_quick_open_search_in_content: 'Quick Open also searches inside hosts content (not just titles)',
+  quick_open_placeholder: 'Search items, IPs, hostnames…',
+  quick_open_empty: 'No matches',
 }

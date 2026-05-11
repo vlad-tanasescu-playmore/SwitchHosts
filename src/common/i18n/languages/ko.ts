@@ -200,4 +200,8 @@ export default {
   zoom: '확대',
   zoom_in: '확대',
   zoom_out: '축소',
+  pref_quick_open_on_window_show: 'Open Quick Open palette automatically when the window appears',
+  pref_quick_open_search_in_content: 'Quick Open also searches inside hosts content (not just titles)',
+  quick_open_placeholder: 'Search items, IPs, hostnames…',
+  quick_open_empty: 'No matches',
 }

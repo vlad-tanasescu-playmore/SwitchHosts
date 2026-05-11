@@ -201,6 +201,10 @@ const lang: LanguageDict = {
   zoom: 'Zoom',
   zoom_in: 'Zoommer',
   zoom_out: 'Dézoommer',
+  pref_quick_open_on_window_show: 'Open Quick Open palette automatically when the window appears',
+  pref_quick_open_search_in_content: 'Quick Open also searches inside hosts content (not just titles)',
+  quick_open_placeholder: 'Search items, IPs, hostnames…',
+  quick_open_empty: 'No matches',
 }
 
 export default lang
