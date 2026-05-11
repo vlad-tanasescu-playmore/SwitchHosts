@@ -13,17 +13,18 @@ const toggle = async (c: Context) => {
   const id = c.req.query('id')
   console.log(`http_api toggle: ${id}`)
   if (!id) {
-    return c.text('bad id.')
+    return c.json({ success: false, message: 'id is required' }, 400)
   }
 
-  let list = await getList()
-  let item = findItemById(list, id)
+  const list = await getList()
+  const item = findItemById(list, id)
   if (!item) {
-    return c.text('not found.')
+    return c.json({ success: false, message: `Item not found: ${id}` }, 404)
   }
 
-  broadcast(events.toggle_item, id, !item.on)
-  return c.text('ok')
+  const newOn = !item.on
+  broadcast(events.toggle_item, id, newOn)
+  return c.json({ success: true, data: { id, on: newOn } })
 }
 
 export default toggle

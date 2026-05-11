@@ -99,15 +99,17 @@ describe('http api test', () => {
   it('should reject toggle requests without id', async () => {
     const response = await app.request('/api/toggle')
 
-    expect(response.status).toBe(200)
-    expect(await response.text()).toBe('bad id.')
+    expect(response.status).toBe(400)
+    const body = await response.json()
+    expect(body.success).toBe(false)
   })
 
   it('should return not found for unknown toggle id', async () => {
     const response = await app.request('/api/toggle?id=missing')
 
-    expect(response.status).toBe(200)
-    expect(await response.text()).toBe('not found.')
+    expect(response.status).toBe(404)
+    const body = await response.json()
+    expect(body.success).toBe(false)
   })
 
   it('should broadcast toggle event for existing item', async () => {
@@ -120,7 +122,9 @@ describe('http api test', () => {
     const response = await app.request('/api/toggle?id=item-1')
 
     expect(response.status).toBe(200)
-    expect(await response.text()).toBe('ok')
+    const body = await response.json()
+    expect(body.success).toBe(true)
+    expect(body.data.on).toBe(true)
     expect(emitSpy).toHaveBeenCalledWith('x_broadcast', null, {
       event: events.toggle_item,
       args: [ 'item-1', true ],
