@@ -32,10 +32,13 @@ function filterTree(items: IHostsListObject[], q: string): IHostsListObject[] {
   const out: IHostsListObject[] = []
   for (const item of items) {
     const title_match = (item.title ?? '').toLowerCase().includes(ql)
-    const filtered_children = item.children
-      ? filterTree(item.children, q)
-      : undefined
-    if (title_match || (filtered_children && filtered_children.length > 0)) {
+    if (title_match) {
+      // Title match — keep the item with ALL its original children intact.
+      out.push(item)
+      continue
+    }
+    const filtered_children = item.children ? filterTree(item.children, q) : undefined
+    if (filtered_children && filtered_children.length > 0) {
       out.push({ ...item, children: filtered_children })
     }
   }
@@ -208,7 +211,11 @@ const List = (props: Props) => {
         selected_ids={selected_ids}
         onChange={(list) => {
           setShowList(list)
-          setList(list).catch((e) => console.error(e))
+          // Never persist a list shaped by the filter — that would corrupt
+          // hosts_data.list with the filtered view, dropping items permanently.
+          if (!(filter_query ?? '').trim()) {
+            setList(list).catch((e) => console.error(e))
+          }
         }}
         onSelect={(ids: string[]) => {
           // console.log(ids)
