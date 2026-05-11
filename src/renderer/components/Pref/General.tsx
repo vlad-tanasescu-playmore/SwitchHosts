@@ -183,6 +183,21 @@ const General = (props: IProps) => {
       <Box w="100%">
         <Stack gap="16px">
           <Checkbox
+            checked={data.quick_open_on_window_show}
+            onChange={(e) => onChange({ quick_open_on_window_show: e.target.checked })}
+            label={lang.pref_quick_open_on_window_show}
+          />
+          <Checkbox
+            checked={data.quick_open_search_in_content}
+            onChange={(e) => onChange({ quick_open_search_in_content: e.target.checked })}
+            label={lang.pref_quick_open_search_in_content}
+          />
+        </Stack>
+      </Box>
+
+      <Box w="100%">
+        <Stack gap="16px">
+          <Checkbox
             checked={data.http_api_on}
             onChange={(e) => onChange({ http_api_on: e.target.checked })}
             label={lang.http_api_on}
